@@ -3,7 +3,7 @@ window.CONFIG = {
   STORE_NAME: "SHOP.CO",
   SUPABASE_URL: "https://ngammkyrbbfwhryytnwx.supabase.co",
   SUPABASE_ANON_KEY: "sb_publishable_sDQyJ0EyU-rlcmSm0x-VLg_dWOzPrup",
-  RAZORPAY_KEY_ID: "YOUR_RAZORPAY_KEY_ID",       // sirf key_id, secret kabhi nahi
+  RAZORPAY_KEY_ID: "rzp_test_TusCjAN4XOJTkH",       // sirf key_id, secret kabhi nahi
   WORKER_URL: "mute-morning-6227.kajgarvarad.workers.dev", // Cloudflare Worker (razorpay order + verify, shopify proxy)
   SHOPIFY_DOMAIN: "realisticmart.myshopify.com",
   SHOPIFY_STOREFRONT_TOKEN: "f11a8d8ee0d54180f59a89c81ea89da8",
