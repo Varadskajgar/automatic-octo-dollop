@@ -1,24 +1,24 @@
-/* JENDORA Supabase browser client + safe data helpers.
-   Load after config.js and before app scripts. Supabase JS v2 is loaded from CDN. */
-(function(){
-  const cfg=window.JENDORA_CONFIG||{};
-  if(!cfg.supabaseUrl||cfg.supabaseUrl.includes('YOUR_PROJECT_REF')||!cfg.supabaseAnonKey||cfg.supabaseAnonKey.startsWith('YOUR_')){
-    console.warn('JENDORA: Add Supabase URL and publishable/anon key in config.js'); return;
-  }
-  if(!window.supabase?.createClient){console.error('Supabase JS SDK missing');return;}
-  const client=window.supabase.createClient(cfg.supabaseUrl,cfg.supabaseAnonKey,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}});
-  window.JENDORA_DB={client,
-    async products(){const {data,error}=await client.from('products').select('*').eq('active',true).order('created_at',{ascending:false});if(error)throw error;return (data||[]).map(p=>({...p,price:Number(p.price_paise)/100,image:p.image_url,images:p.images||[],category:p.category||'Other'}));},
-    async addProduct(p){const row={sku:p.sku||null,title:p.title,brand:p.brand||null,category:p.category||'Other',description:p.desc||p.description||'',price_paise:Math.round(Number(p.price)*100),image_url:p.image||p.image_url||null,images:p.images||[],sizes:p.sizes||[],stock:Number(p.stock||0),tag:p.tag||null,active:true};const q=p.id?client.from('products').update(row).eq('id',p.id).select().single():client.from('products').insert(row).select().single();const {data,error}=await q;if(error)throw error;return data;},
-    async deleteProduct(id){const {error}=await client.from('products').delete().eq('id',id);if(error)throw error;},
-    async categories(){const {data,error}=await client.from('categories').select('*').eq('active',true).order('sort_order');if(error)throw error;return data||[];},
-    async orders(){const {data,error}=await client.from('orders').select('*,order_items(*)').order('created_at',{ascending:false});if(error)throw error;return data||[];},
-    async updateOrder(id,status){const {error}=await client.from('orders').update({status,updated_at:new Date().toISOString()}).eq('id',id);if(error)throw error;},
-    async settings(){const {data,error}=await client.from('store_settings').select('*');if(error)throw error;return Object.fromEntries((data||[]).map(x=>[x.key,x.value]));},
-    async saveSetting(key,value){const {error}=await client.from('store_settings').upsert({key,value});if(error)throw error;},
-    async signInWithGoogle(){return client.auth.signInWithOAuth({provider:'google',options:{redirectTo:location.origin+location.pathname}});},
-    async isAdmin(){const {data:{user}}=await client.auth.getUser();if(!user)return false;const {data,error}=await client.from('admin_users').select('user_id').eq('user_id',user.id).maybeSingle();if(error)throw error;return !!data;},
-    async placeOrder(payload){const {data,error}=await client.rpc('place_order',payload);if(error)throw error;return data;},
-    async signOut(){return client.auth.signOut();}
-  };
-})();
+/* JENDORA Supabase data layer. No demo/localStorage database. */
+(()=>{'use strict';const cfg=window.JENDORA_CONFIG||{};const ready=()=>!!(cfg.supabaseUrl&&!cfg.supabaseUrl.includes('YOUR_PROJECT_REF')&&cfg.supabaseAnonKey&&!cfg.supabaseAnonKey.startsWith('YOUR_')&&window.supabase?.createClient);let client=null;if(ready())client=window.supabase.createClient(cfg.supabaseUrl,cfg.supabaseAnonKey,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true}});const db={get client(){if(!client)throw Error('Supabase setup missing. Add Project URL and publishable/anon key in config.js.');return client},ready,
+ async products(){let {data,error}=await this.client.from('products').select('*').eq('active',true).order('created_at',{ascending:false});if(error)throw error;return data||[]},
+ async categories(){let {data,error}=await this.client.from('categories').select('*').eq('active',true).order('sort_order');if(error)throw error;return data||[]},
+ async banners(){let {data,error}=await this.client.from('banners').select('*').eq('active',true).order('sort_order');if(error)throw error;return data||[]},
+ async settings(){let {data,error}=await this.client.from('store_settings').select('*');if(error)throw error;return Object.fromEntries((data||[]).map(x=>[x.key,x.value]))},
+ async saveSetting(key,value){let {error}=await this.client.from('store_settings').upsert({key,value,updated_at:new Date().toISOString()});if(error)throw error},
+ async user(){let {data,error}=await this.client.auth.getUser();if(error)throw error;return data.user},
+ async googleLogin(){let {error}=await this.client.auth.signInWithOAuth({provider:'google',options:{redirectTo:location.origin+location.pathname}});if(error)throw error},
+ async signOut(){let {error}=await this.client.auth.signOut();if(error)throw error},
+ async isAdmin(){let u=await this.user();if(!u)return false;let {data,error}=await this.client.from('admin_users').select('user_id').eq('user_id',u.id).maybeSingle();if(error)throw error;return !!data},
+ async adminProducts(){let {data,error}=await this.client.from('products').select('*').order('created_at',{ascending:false});if(error)throw error;return data||[]},
+ async saveProduct(p){let row={sku:p.sku||null,title:p.title,brand:p.brand||null,category:p.category||'Other',description:p.description||'',price_paise:Math.round(Number(p.price)*100),compare_at_price_paise:p.compare?Math.round(Number(p.compare)*100):null,image_url:p.image_url||null,images:p.images||[],sizes:p.sizes||[],stock:Number(p.stock||0),tag:p.tag||null,active:!!p.active,featured:!!p.featured,updated_at:new Date().toISOString()};let q=p.id?this.client.from('products').update(row).eq('id',p.id):this.client.from('products').insert(row);let {data,error}=await q.select().single();if(error)throw error;return data},
+ async deleteProduct(id){let {error}=await this.client.from('products').delete().eq('id',id);if(error)throw error},
+ async adminCategories(){let {data,error}=await this.client.from('categories').select('*').order('sort_order');if(error)throw error;return data||[]},
+ async saveCategory(c){let row={name:c.name,slug:c.slug,image_url:c.image_url||null,sort_order:Number(c.sort_order||0),active:c.active!==false};let q=c.id?this.client.from('categories').update(row).eq('id',c.id):this.client.from('categories').insert(row);let {error}=await q;if(error)throw error},
+ async adminBanners(){let {data,error}=await this.client.from('banners').select('*').order('sort_order');if(error)throw error;return data||[]},
+ async saveBanner(b){let row={title:b.title,subtitle:b.subtitle||'',image_url:b.image_url||null,link_url:b.link_url||null,sort_order:Number(b.sort_order||0),active:b.active!==false};let q=b.id?this.client.from('banners').update(row).eq('id',b.id):this.client.from('banners').insert(row);let {error}=await q;if(error)throw error},
+ async adminOrders(){let {data,error}=await this.client.from('orders').select('*,order_items(*)').order('created_at',{ascending:false});if(error)throw error;return data||[]},
+ async updateOrder(id,status){let {error}=await this.client.from('orders').update({status,updated_at:new Date().toISOString()}).eq('id',id);if(error)throw error},
+ async upload(file){let ext=(file.name.split('.').pop()||'jpg').toLowerCase().replace(/[^a-z0-9]/g,'');let path=`${Date.now()}-${crypto.randomUUID()}.${ext}`;let {data,error}=await this.client.storage.from(cfg.storageBucket||'jendora-assets').upload(path,file,{upsert:false,contentType:file.type});if(error)throw error;return this.client.storage.from(cfg.storageBucket||'jendora-assets').getPublicUrl(data.path).data.publicUrl},
+ async placeOrder(payload){let {data,error}=await this.client.rpc('place_order',payload);if(error)throw error;return data},
+ async myOrders(){let u=await this.user();if(!u)throw Error('Sign in to view account orders.');let {data,error}=await this.client.from('orders').select('*,order_items(*)').eq('user_id',u.id).order('created_at',{ascending:false});if(error)throw error;return data||[]}
+};window.JENDORA_DB=db})();

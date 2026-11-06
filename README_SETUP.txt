@@ -1,66 +1,38 @@
-JENDORA — SUPABASE BACKEND FOUNDATION
+JENDORA — SUPABASE CONNECTED WEBSITE
 ====================================
 
-IMPORTANT STATUS
-This package contains the Supabase database foundation, RLS policies, storage bucket,
-secure admin-role table, server-calculated order-creation RPC, browser client helpers,
-and your existing storefront/admin files for reference.
-It is NOT a finished live-commerce deployment yet: the existing legacy pages still
-contain localStorage/demo flows and must be migrated to call JENDORA_DB. Online payment
-verification, GST-compliant invoice issuance, email/OTP delivery and shipping-provider
-tracking require separate server-side integrations. Do not accept real payments until
-those are implemented and tested.
+WHAT IS CONNECTED
+- Storefront product/category/banner/settings reads use Supabase.
+- Admin uses Supabase Google OAuth and admin_users authorization (RLS enforced).
+- Admin product create/edit/delete, category management, banner management, order status updates, settings and Storage uploads use Supabase.
+- Customer checkout calls the database place_order RPC; prices, tax, shipping, stock and totals are calculated server-side. Orders remain PENDING.
+- Cart exists only in the current page session; it is not a database or localStorage catalog.
+- No demo products, fake orders, demo admin shortcut, or localStorage database remains.
 
-FILES
-- index.html / admin.html: existing JENDORA pages (legacy prototype)
-- config.js: public Supabase URL/key placeholders + admin email placeholder
-- supabase-client.js: Supabase JS v2 client and data helper functions
-- supabase_schema.sql: complete initial database schema, RLS, RPC, storage policies
-
-SETUP
-1. Create a NEW Supabase project.
-2. Open SQL Editor > New query. Paste all of supabase_schema.sql and Run.
-3. In Project Settings > API, copy Project URL and the publishable key (or legacy anon
-   key). Put those two values in config.js. Never use the secret/service_role key.
-4. In Supabase Authentication > Providers, enable Google and configure Google OAuth
-   credentials + authorized redirect URLs for your deployed domain and localhost.
-5. Sign up / sign in once using the Gmail that will own the JENDORA admin account.
-6. In SQL Editor run the following, replacing the email:
-
+REQUIRED BEFORE USE
+1. In Supabase SQL Editor run supabase_schema.sql on your project (only if not already run).
+2. Edit config.js and set the Supabase Project URL and publishable/anon key. NEVER use service_role/secret key.
+3. Supabase Auth > Providers: enable Google and configure OAuth credentials and redirect URLs for your hosted domain.
+4. Sign in once with your intended admin Google account.
+5. In SQL Editor grant that user admin access (replace email):
    insert into public.admin_users(user_id)
    select id from auth.users where lower(email)=lower('YOUR_ADMIN_GMAIL@gmail.com')
    on conflict(user_id) do nothing;
+6. Host all files on HTTPS, keeping index.html, admin.html, config.js and supabase-client.js together.
+7. Open admin.html, sign in, then add categories/products/banners.
 
-7. Include these scripts in each page BEFORE the page's own application script:
+IMPORTANT LIMITATIONS / SAFETY
+- Online payment gateway is NOT integrated. Checkout creates PENDING orders only; no payment is collected and no paid invoice is issued. Add a payment Edge Function + verified webhook before enabling online payments.
+- This database schema does not provide a full shipping-provider integration, customer email/OTP notifications, GST-compliant tax invoices, or subscription billing.
+- The schema's order_items customer read policy and admin permissions are governed by the supplied SQL/RLS. Test using separate customer/admin accounts.
+- Product delete may be blocked when historical order references exist; prefer setting product inactive in that case.
+- Product/category/banner image URL fields accept direct URLs; product upload uses the jendora-assets bucket.
+- The SQL place_order RPC provided in the original schema decrements inventory and creates PENDING orders. Test stock and checkout carefully before launch.
+- Do not expose Supabase secret/service_role keys, payment secrets or private tokens in config.js.
 
-   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-   <script src="config.js"></script>
-   <script src="supabase-client.js"></script>
-
-8. Host on HTTPS. Test with two separate browser profiles: customer and admin.
-
-DATABASE FEATURES
-- Products, categories, banners, store settings, coupons
-- Customer profiles, orders, order items, reviews, wishlists
-- Admin role table + RLS authorization
-- Public read of active catalog; admin-only catalog/settings writes
-- Customer can read only own orders; admin can manage orders
-- Product stock is checked/decremented in place_order RPC
-- Order totals are calculated from DB prices in integer paise
-- Public product/banner image bucket with admin-only uploads
-
-SECURITY / PRODUCTION NOTES
-- Never expose Supabase secret/service_role keys or payment gateway secrets in config.js.
-- Never trust a total, product price, tax amount, or PAID status supplied by the browser.
-- place_order creates an order as PENDING; it does not mark payment paid.
-- A payment Edge Function + verified gateway webhook must be added before live UPI/cards.
-- GST invoice number should be issued only after verified payment / valid COD collection,
-  using seller GSTIN, HSN, place of supply and CGST/SGST or IGST rules reviewed by a CA.
-- Configure Auth email/Google provider, SMTP, domain allowlists, backups and rate limits.
-- SQL bootstrap admin query must be run only after the intended user has signed up.
-- For an existing production database, review SQL carefully before running migrations.
-
-SUPABASE DOCS
-https://supabase.com/docs
-https://supabase.com/docs/guides/auth/social-login/auth-google
-https://supabase.com/docs/guides/database/postgres/row-level-security
+FILES
+index.html — Supabase-powered storefront
+admin.html — authenticated admin dashboard
+config.js — public Supabase configuration placeholders
+supabase-client.js — shared Supabase data layer
+supabase_schema.sql — database schema/RLS/RPC/storage policies
