@@ -36,3 +36,10 @@ admin.html — authenticated admin dashboard
 config.js — public Supabase configuration placeholders
 supabase-client.js — shared Supabase data layer
 supabase_schema.sql — database schema/RLS/RPC/storage policies
+
+
+ORDER AUTHENTICATION UPDATE
+---------------------------
+Orders now require a valid Supabase Auth session. Guest checkout is disabled in the storefront and the place_order SQL function rejects unauthenticated calls. Re-run the updated supabase_schema.sql in Supabase SQL Editor after backing up any existing data.
+
+Google sign-in prerequisite: enable Google under Supabase Authentication > Providers, configure Google OAuth Client ID/Secret, and add your exact deployed site URL and redirect URL under Authentication > URL Configuration. The browser code cannot enable/configure Google's OAuth provider for you.

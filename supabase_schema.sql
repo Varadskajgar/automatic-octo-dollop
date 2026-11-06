@@ -168,6 +168,7 @@ declare v_order_id uuid; v_order_no text; v_subtotal bigint:=0; v_shipping bigin
  v_ship_fee bigint:=9900; v_free_threshold bigint:=199900; v_item jsonb; v_product public.products%rowtype;
  v_qty int; v_line bigint; v_coupon public.coupons%rowtype;
 begin
+ if auth.uid() is null then raise exception 'AUTH_SESSION_MISSING: Sign in before placing an order'; end if;
  if jsonb_typeof(p_items) <> 'array' or jsonb_array_length(p_items)=0 then raise exception 'Cart is empty'; end if;
  if length(trim(coalesce(p_customer_name,'')))<2 or position('@' in coalesce(p_customer_email,''))<2 then raise exception 'Valid customer name and email required'; end if;
  select coalesce((value#>>'{}')::numeric,18) into v_rate from public.store_settings where key='gst_rate';
@@ -195,7 +196,7 @@ begin
  v_total:=v_subtotal-v_discount+v_shipping+v_tax;
  v_order_no:='JD-'||to_char(now(),'YYMMDD')||'-'||upper(substr(replace(gen_random_uuid()::text,'-',''),1,8));
  insert into public.orders(order_number,user_id,customer_name,customer_email,customer_phone,shipping_address,subtotal_paise,discount_paise,shipping_paise,tax_paise,total_paise,payment_status)
- values(v_order_no,auth.uid(),trim(p_customer_name),lower(trim(p_customer_email)),trim(p_customer_phone),p_shipping_address,v_subtotal,v_discount,v_shipping,v_tax,v_total,case when auth.uid() is null then 'PENDING' else 'PENDING' end)
+ values(v_order_no,auth.uid(),trim(p_customer_name),lower(trim(p_customer_email)),trim(p_customer_phone),p_shipping_address,v_subtotal,v_discount,v_shipping,v_tax,v_total,'PENDING')
  returning id into v_order_id;
  for v_item in select * from jsonb_array_elements(p_items) loop
    v_qty:=greatest(1,least(20,coalesce((v_item->>'quantity')::int,1)));
@@ -208,7 +209,8 @@ begin
  return jsonb_build_object('order_id',v_order_id,'order_number',v_order_no,'subtotal_paise',v_subtotal,'discount_paise',v_discount,'shipping_paise',v_shipping,'tax_paise',v_tax,'total_paise',v_total,'payment_status','PENDING');
 end; $$;
 revoke all on function public.place_order(text,text,text,jsonb,jsonb,text) from public;
-grant execute on function public.place_order(text,text,text,jsonb,jsonb,text) to anon,authenticated;
+revoke execute on function public.place_order(text,text,text,jsonb,jsonb,text) from anon;
+grant execute on function public.place_order(text,text,text,jsonb,jsonb,text) to authenticated;
 
 -- Storage bucket for public product/banner images. Admin-only upload/update/delete.
 insert into storage.buckets(id,name,public,file_size_limit,allowed_mime_types)

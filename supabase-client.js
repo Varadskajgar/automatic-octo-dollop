@@ -5,8 +5,10 @@
  async banners(){let {data,error}=await this.client.from('banners').select('*').eq('active',true).order('sort_order');if(error)throw error;return data||[]},
  async settings(){let {data,error}=await this.client.from('store_settings').select('*');if(error)throw error;return Object.fromEntries((data||[]).map(x=>[x.key,x.value]))},
  async saveSetting(key,value){let {error}=await this.client.from('store_settings').upsert({key,value,updated_at:new Date().toISOString()});if(error)throw error},
+ async session(){let {data,error}=await this.client.auth.getSession();if(error)throw error;return data.session},
  async user(){let {data,error}=await this.client.auth.getUser();if(error)throw error;return data.user},
- async googleLogin(){let {error}=await this.client.auth.signInWithOAuth({provider:'google',options:{redirectTo:location.origin+location.pathname}});if(error)throw error},
+ async requireUser(){let session=await this.session();if(!session?.user)throw Error('Please sign in before placing an order.');return session.user},
+ async googleLogin(){if(!this.ready())throw Error('Supabase is not configured.');let redirectTo=location.origin+location.pathname;let {data,error}=await this.client.auth.signInWithOAuth({provider:'google',options:{redirectTo,queryParams:{prompt:'select_account'}}});if(error)throw error;return data},
  async signOut(){let {error}=await this.client.auth.signOut();if(error)throw error},
  async isAdmin(){let u=await this.user();if(!u)return false;let {data,error}=await this.client.from('admin_users').select('user_id').eq('user_id',u.id).maybeSingle();if(error)throw error;return !!data},
  async adminProducts(){let {data,error}=await this.client.from('products').select('*').order('created_at',{ascending:false});if(error)throw error;return data||[]},
@@ -19,6 +21,6 @@
  async adminOrders(){let {data,error}=await this.client.from('orders').select('*,order_items(*)').order('created_at',{ascending:false});if(error)throw error;return data||[]},
  async updateOrder(id,status){let {error}=await this.client.from('orders').update({status,updated_at:new Date().toISOString()}).eq('id',id);if(error)throw error},
  async upload(file){let ext=(file.name.split('.').pop()||'jpg').toLowerCase().replace(/[^a-z0-9]/g,'');let path=`${Date.now()}-${crypto.randomUUID()}.${ext}`;let {data,error}=await this.client.storage.from(cfg.storageBucket||'jendora-assets').upload(path,file,{upsert:false,contentType:file.type});if(error)throw error;return this.client.storage.from(cfg.storageBucket||'jendora-assets').getPublicUrl(data.path).data.publicUrl},
- async placeOrder(payload){let {data,error}=await this.client.rpc('place_order',payload);if(error)throw error;return data},
+ async placeOrder(payload){let user=await this.requireUser();let {data,error}=await this.client.rpc('place_order',{...payload,p_customer_email:user.email||payload.p_customer_email});if(error)throw error;return data},
  async myOrders(){let u=await this.user();if(!u)throw Error('Sign in to view account orders.');let {data,error}=await this.client.from('orders').select('*,order_items(*)').eq('user_id',u.id).order('created_at',{ascending:false});if(error)throw error;return data||[]}
 };window.JENDORA_DB=db})();
