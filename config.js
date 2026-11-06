@@ -1,15 +1,4 @@
-// ===== CONFIG: yaha apni keys daalo =====
-window.CONFIG = {
-  STORE_NAME: "SHOP.CO",
-  SUPABASE_URL: "https://ngammkyrbbfwhryytnwx.supabase.co",
-  SUPABASE_ANON_KEY: "sb_publishable_sDQyJ0EyU-rlcmSm0x-VLg_dWOzPrup",
-  RAZORPAY_KEY_ID: "rzp_test_TusCjAN4XOJTkH",       // sirf key_id, secret kabhi nahi
-  WORKER_URL: "mute-morning-6227.kajgarvarad.workers.dev", // Cloudflare Worker (razorpay order + verify, shopify proxy)
-  SHOPIFY_DOMAIN: "realisticmart.myshopify.com",
-  SHOPIFY_STOREFRONT_TOKEN: "f11a8d8ee0d54180f59a89c81ea89da8",
-  ADMIN_EMAILS: ["admin@gmail.com"],
-  FREE_SHIPPING_ABOVE: 999, SHIPPING_FEE: 79, GST_PERCENT: 5, RETURN_DAYS: 7
-};
+
 /* ===== SUPABASE SQL (SQL Editor me run karo) =====
 create table products(id uuid primary key default gen_random_uuid(),title text,price numeric,mrp numeric,image text,category text,stock int default 50,active bool default true);
 create table orders(id uuid primary key default gen_random_uuid(),user_id uuid default auth.uid(),email text,name text,phone text,address text,pin text,items jsonb,total numeric,status text default 'Placed',payment_id text,created_at timestamptz default now());
