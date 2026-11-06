@@ -1,13 +1,13 @@
 // ===== CONFIG: yaha apni keys daalo =====
 window.CONFIG = {
   STORE_NAME: "SHOP.CO",
-  SUPABASE_URL: "YOUR_SUPABASE_URL",
-  SUPABASE_ANON_KEY: "YOUR_SUPABASE_ANON_KEY",
+  SUPABASE_URL: "https://ngammkyrbbfwhryytnwx.supabase.co",
+  SUPABASE_ANON_KEY: "sb_publishable_sDQyJ0EyU-rlcmSm0x-VLg_dWOzPrup",
   RAZORPAY_KEY_ID: "YOUR_RAZORPAY_KEY_ID",       // sirf key_id, secret kabhi nahi
-  WORKER_URL: "https://your-worker.workers.dev", // Cloudflare Worker (razorpay order + verify, shopify proxy)
-  SHOPIFY_DOMAIN: "yourstore.myshopify.com",
-  SHOPIFY_STOREFRONT_TOKEN: "YOUR_STOREFRONT_TOKEN",
-  ADMIN_EMAILS: ["youradmin@gmail.com"],
+  WORKER_URL: "mute-morning-6227.kajgarvarad.workers.dev", // Cloudflare Worker (razorpay order + verify, shopify proxy)
+  SHOPIFY_DOMAIN: "realisticmart.myshopify.com",
+  SHOPIFY_STOREFRONT_TOKEN: "f11a8d8ee0d54180f59a89c81ea89da8",
+  ADMIN_EMAILS: ["admin@gmail.com"],
   FREE_SHIPPING_ABOVE: 999, SHIPPING_FEE: 79, GST_PERCENT: 5, RETURN_DAYS: 7
 };
 /* ===== SUPABASE SQL (SQL Editor me run karo) =====
