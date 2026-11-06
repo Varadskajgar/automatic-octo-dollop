@@ -2,9 +2,9 @@
 window.JENDORA_CONFIG = Object.freeze({
   storeName: 'JENDORA',
   currency: 'INR',
-  supabaseUrl: 'https://YOUR_PROJECT_REF.supabase.co',
-  supabaseAnonKey: 'YOUR_SUPABASE_PUBLISHABLE_OR_ANON_KEY',
-  adminEmail: 'YOUR_ADMIN_GMAIL@gmail.com',
+  supabaseUrl: 'https://ngammkyrbbfwhryytnwx.supabase.co',
+  supabaseAnonKey: 'sb_publishable_sDQyJ0EyU-rlcmSm0x-VLg_dWOzPrup',
+  adminEmail: 'admin@gmail.com',
   storageBucket: 'jendora-assets',
   paymentMode: 'disabled_until_server_gateway_setup'
 });
