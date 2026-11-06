@@ -43,3 +43,12 @@ ORDER AUTHENTICATION UPDATE
 Orders now require a valid Supabase Auth session. Guest checkout is disabled in the storefront and the place_order SQL function rejects unauthenticated calls. Re-run the updated supabase_schema.sql in Supabase SQL Editor after backing up any existing data.
 
 Google sign-in prerequisite: enable Google under Supabase Authentication > Providers, configure Google OAuth Client ID/Secret, and add your exact deployed site URL and redirect URL under Authentication > URL Configuration. The browser code cannot enable/configure Google's OAuth provider for you.
+
+SHOPIFY LIVE CATALOG
+--------------------
+- The storefront now reads its catalog directly from Shopify Storefront GraphQL API; demo product fallback has been removed.
+- In config.js set SHOPIFY_DOMAIN to realisticmart.myshopify.com and SHOPIFY_STOREFRONT_TOKEN to the Storefront API token.
+- In Shopify Admin, create/enable a Storefront API access token with product read access and make sure products are published/available to the storefront sales channel.
+- The first 300 products (up to three pages of 100) are loaded on storefront startup. Shopify is the source of truth; add/edit products in Shopify Admin.
+- Storefront API token is designed to be used by storefront clients, but never put an Admin API access token in config.js.
+- Shopify catalog display does not by itself synchronize Shopify inventory with Supabase orders. Verify fulfillment, inventory reservation, payment verification and webhook handling before accepting live paid orders.

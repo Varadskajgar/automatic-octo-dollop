@@ -50,7 +50,23 @@ const C=CONFIG,$=s=>document.querySelector(s),esc=s=>String(s??'').replace(/[&<>
 $('#rd').textContent=C.RETURN_DAYS;
 const LIVE=C.SUPABASE_URL&&!C.SUPABASE_URL.includes('YOUR_'),sb=LIVE?supabase.createClient(C.SUPABASE_URL,C.SUPABASE_ANON_KEY):null;
 const IMG=(q,i)=>`https://images.unsplash.com/${q}?w=600&q=70`;
-const DEMO=[['Classic White Shirt',1299,1799,'photo-1602810318383-e386cc2a3ccf','Formal'],['Oxford Button-Down',1499,1999,'photo-1596755094514-f87e34085b2c','Formal'],['Striped Casual Shirt',999,1299,'photo-1607345366928-199ea26cfe3e','Casual'],['Graphic Tee',699,899,'photo-1521572163474-6864f9cf17ab','Casual'],['Linen Party Shirt',1799,2299,'photo-1620012253295-c15cc3e65df4','Party'],['Gym Tank',599,799,'photo-1581009146145-b5ef050c2e1e','Gym']].map((p,i)=>({id:'d'+i,title:p[0],price:p[1],mrp:p[2],image:IMG(p[3]),category:p[4],stock:50}));
+// Shopify is the sole catalog source. No demo/localStorage product fallback.
+async function fetchShopifyProducts(){
+ const domain=String(C.SHOPIFY_DOMAIN||'').trim().replace(/^https?:\/\//,'').replace(/\/$/,'');
+ const token=String(C.SHOPIFY_STOREFRONT_TOKEN||'').trim();
+ if(!domain||!token) throw new Error('Shopify domain ya Storefront API token config.js mein missing hai.');
+ const query=`query StorefrontProducts($cursor:String){products(first:100,after:$cursor,sortKey:UPDATED_AT,reverse:true){pageInfo{hasNextPage endCursor}edges{node{id handle title description productType featuredImage{url altText}images(first:1){edges{node{url altText}}}priceRange{minVariantPrice{amount currencyCode}}compareAtPriceRange{maxVariantPrice{amount currencyCode}}variants(first:1){edges{node{id title availableForSale price{amount currencyCode}compareAtPrice{amount currencyCode}}}}}}}}`;
+ let cursor=null,all=[];
+ for(let page=0;page<3;page++){
+  const response=await fetch(`https://${domain}/api/2026-10/graphql.json`,{method:'POST',headers:{'Content-Type':'application/json','X-Shopify-Storefront-Access-Token':token},body:JSON.stringify({query,variables:{cursor}})});
+  const body=await response.json();
+  if(!response.ok||body.errors?.length) throw new Error(body.errors?.map(x=>x.message).join('; ')||`Shopify API error (${response.status})`);
+  const connection=body.data?.products;if(!connection)throw new Error('Shopify se product data nahi mila. Storefront API access check karo.');
+  all.push(...connection.edges.map(({node:n})=>{const v=n.variants?.edges?.[0]?.node||{};const price=Number(v.price?.amount??n.priceRange?.minVariantPrice?.amount??0);const compare=Number(v.compareAtPrice?.amount??n.compareAtPriceRange?.maxVariantPrice?.amount??price);const image=n.featuredImage?.url||n.images?.edges?.[0]?.node?.url||'';return{id:n.id,handle:n.handle,title:n.title,description:n.description,price,mrp:compare||price,image,category:n.productType||'Other',stock:v.availableForSale?1:0,available:v.availableForSale!==false,shopify:true}}));
+  if(!connection.pageInfo.hasNextPage)break;cursor=connection.pageInfo.endCursor;
+ }
+ return all;
+}
 let P=[],cart=JSON.parse(localStorage.cart||'[]'),user=null;
 const save=()=>{localStorage.cart=JSON.stringify(cart);$('#cc').textContent=cart.reduce((a,c)=>a+c.qty,0)};
 const toast=m=>{const t=$('#toast');t.textContent=m;t.style.display='block';setTimeout(()=>t.style.display='none',2500)};
@@ -58,7 +74,7 @@ const isAdmin=()=>user&&C.ADMIN_EMAILS.includes(user.email);
 // ---------- DATA LAYER (Supabase live, localStorage demo) ----------
 const L=(k)=>JSON.parse(localStorage['db_'+k]||'[]'),W=(k,v)=>localStorage['db_'+k]=JSON.stringify(v);
 const db={
- async products(){if(!sb)return L('products').length?L('products'):DEMO;const{data}=await sb.from('products').select('*').eq('active',true);return data?.length?data:DEMO},
+ async products(){return await fetchShopifyProducts()},
  async orders(all){if(!sb)return L('orders').filter(o=>all||o.email===user?.email);let q=sb.from('orders').select('*').order('created_at',{ascending:false});const{data}=await q;return data||[]},
  async addOrder(o){o.created_at=new Date().toISOString();if(!sb){o.id='ORD'+Date.now();W('orders',[o,...L('orders')]);return o}const{data,error}=await sb.from('orders').insert(o).select().single();if(error)throw error;return data},
  async setOrder(id,status){if(!sb)return W('orders',L('orders').map(o=>o.id==id?{...o,status}:o));await sb.from('orders').update({status}).eq('id',id)},
@@ -67,16 +83,16 @@ const db={
  async setReturn(id,status){if(!sb)return W('returns',L('returns').map(o=>o.id==id?{...o,status}:o));await sb.from('returns').update({status}).eq('id',id)},
  async subs(){if(!sb)return L('subs');const{data}=await sb.from('subscribers').select('*');return data||[]},
  async addSub(email){if(!sb)return W('subs',[...L('subs'),{email}]);await sb.from('subscribers').upsert({email})},
- async addProduct(p){if(!sb)return W('products',[...(L('products').length?L('products'):DEMO),{...p,id:'p'+Date.now()}]);await sb.from('products').insert(p)},
+ async addProduct(p){throw new Error('Products Shopify se sync hote hain. Naya product Shopify Admin mein add karo.')},
  async profile(){if(!sb)return JSON.parse(localStorage.profile||'{}');const{data}=await sb.from('profiles').select('*').maybeSingle();return data||{}},
  async saveProfile(p){if(!sb)return localStorage.profile=JSON.stringify(p);await sb.from('profiles').upsert({...p,id:user.id})}
 };
 // ---------- AUTH ----------
 async function authClick(){if(user){if(sb)await sb.auth.signOut();user=null;localStorage.removeItem('demoUser');return setUser()}
  if(sb)return sb.auth.signInWithOAuth({provider:'google',options:{redirectTo:location.href.split('#')[0]}});
- const e=prompt('Demo login — Gmail daalo (Supabase config ke baad Google login chalega)');if(e){user={email:e,id:e,name:e.split('@')[0]};localStorage.demoUser=JSON.stringify(user);setUser()}}
+ toast('Login ke liye Supabase URL aur anon key config.js mein set karo.')}
 function setUser(){$('#auth').textContent=user?`Logout (${esc(user.name?.split(' ')[0]||'')})`:'Login';$('#adminLink').hidden=!isAdmin();route()}
-async function initAuth(){if(sb){const{data}=await sb.auth.getSession();const u=data.session?.user;if(u)user={id:u.id,email:u.email,name:u.user_metadata?.full_name||u.email};sb.auth.onAuthStateChange((_,s)=>{const u=s?.user;user=u?{id:u.id,email:u.email,name:u.user_metadata?.full_name||u.email}:null;setUser()})}else if(localStorage.demoUser)user=JSON.parse(localStorage.demoUser);}
+async function initAuth(){if(sb){const{data}=await sb.auth.getSession();const u=data.session?.user;if(u)user={id:u.id,email:u.email,name:u.user_metadata?.full_name||u.email};sb.auth.onAuthStateChange((_,s)=>{const u=s?.user;user=u?{id:u.id,email:u.email,name:u.user_metadata?.full_name||u.email}:null;setUser()})}}
 // ---------- PIN + DELIVERY DATE ----------
 async function pinInfo(pin){try{const r=await(await fetch('https://api.postalpincode.in/pincode/'+pin)).json();const o=r[0]?.PostOffice?.[0];if(!o)return null;const metro=['Mumbai','Pune','Delhi','Bengaluru','Hyderabad','Chennai','Kolkata'].some(m=>o.District.includes(m)||o.Block?.includes(m));const d=new Date();d.setDate(d.getDate()+(metro?3:6));return{city:o.District,state:o.State,eta:d.toLocaleDateString('en-IN',{weekday:'short',day:'numeric',month:'short'})}}catch{return null}}
 function detectPin(inputId,outId){if(!navigator.geolocation)return toast('Location support nahi hai');navigator.geolocation.getCurrentPosition(async p=>{try{const r=await(await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${p.coords.latitude}&lon=${p.coords.longitude}`)).json();const pin=(r.address?.postcode||'').replace(/\s/g,'');$('#'+inputId).value=pin;checkPin(inputId,outId)}catch{toast('Pin detect nahi hua')}},()=>toast('Location permission do'))}
@@ -114,12 +130,12 @@ async function retReq(id){const reason=prompt('Return ka reason?');if(!reason)re
 async function checkout(e){e.preventDefault();if(!user){toast('Pehle login karo');return authClick()}
  const f=Object.fromEntries(new FormData(e.target)),pin=$('#cpin').value;if(!/^\d{6}$/.test(pin))return toast('Sahi pincode daalo');const t=totals();
  const done=async pid=>{const o=await db.addOrder({email:user.email,name:f.name,phone:f.phone,address:f.address,pin,items:cart,total:t.total,payment_id:pid,...(sb?{}:{})});await db.saveProfile({name:f.name,phone:f.phone,address:f.address,pin});cart=[];save();toast('Order placed ✔');location.hash='#/orders'};
- if(!C.RAZORPAY_KEY_ID||C.RAZORPAY_KEY_ID.includes('YOUR_'))return done('DEMO_PAYMENT');
+ if(!C.RAZORPAY_KEY_ID)return toast('Razorpay Key ID config.js mein set nahi hai.');
  let order_id;try{if(!C.WORKER_URL.includes('your-worker')){order_id=(await(await fetch(C.WORKER_URL+'/razorpay/order',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({amount:t.total*100})})).json()).id}}catch{}
  new Razorpay({key:C.RAZORPAY_KEY_ID,amount:t.total*100,currency:'INR',name:C.STORE_NAME,order_id,prefill:{name:f.name,email:user.email,contact:f.phone},handler:r=>done(r.razorpay_payment_id),theme:{color:'#000000'}}).open()}
 async function bill(id){const o=(await db.orders(1)).find(x=>x.id==id),g=C.GST_PERCENT;const w=open('','_blank');w.document.write(`<title>Invoice</title><body style="font-family:Arial;max-width:700px;margin:30px auto"><h1>${C.STORE_NAME}</h1><h3>Tax Invoice #${String(o.id).slice(0,8)}</h3><p>Date: ${new Date(o.created_at).toLocaleDateString('en-IN')}<br>${esc(o.name)}, ${esc(o.phone)}<br>${esc(o.address)} - ${esc(o.pin)}</p><table border=1 cellpadding=8 style="border-collapse:collapse;width:100%"><tr><th>Item</th><th>Qty</th><th>Price</th><th>Amount</th></tr>${o.items.map(c=>`<tr><td>${esc(c.title)} (${c.size})</td><td>${c.qty}</td><td>${inr(c.price)}</td><td>${inr(c.price*c.qty)}</td></tr>`).join('')}</table><p>GST ${g}% included: ${inr(Math.round(o.total*g/(100+g)))}</p><h2>Total: ${inr(o.total)}</h2><p>Payment ID: ${esc(o.payment_id)}</p><script>print()<\/script>`)}
 // ---------- ROUTER ----------
 async function route(){const[,r,a]=location.hash.split('/');let h;if(r=='shop')h=V.shop(decodeURIComponent(a||''));else if(r=='p')h=V.product(a);else if(r=='cart'){window.prof=user?await db.profile():{};h=V.cart()}else if(r=='orders')h=await V.orders();else if(r=='admin')h=await V.admin();else h=V.home();$('#app').innerHTML=h;scrollTo(0,0);if(r=='cart'||r=='p')checkPin(r=='p'?'ppin':'cpin',(r=='p'?'ppin':'cpin')+'o')}
 addEventListener('hashchange',route);
-(async()=>{await initAuth();P=await db.products();save();setUser()})();
+(async()=>{try{await initAuth();P=await db.products();save();setUser()}catch(e){console.error(e);P=[];$('#app').innerHTML=`<div class="wrap"><section class="box"><h2>Products load nahi hue</h2><p style="margin-top:10px">${esc(e.message||'Shopify connection failed')}</p><p style="margin-top:8px;color:var(--mut)">config.js mein Shopify domain aur Storefront API token check karo. Shopify Admin mein Storefront API access aur products Online Store/Storefront ke liye available hone chahiye.</p><button class="btn" style="margin-top:14px" onclick="location.reload()">Retry</button></section></div>`;}})();
 </script></body></html>
